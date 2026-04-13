@@ -1,0 +1,9 @@
+[package]
+name = "cronet-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+futures = "0.3.32"
+libloading = "0.9.0"
+tokio = { version = "1.51.1", features = ["full"] }
