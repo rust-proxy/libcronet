@@ -3,7 +3,50 @@ name = "cronet-rs"
 version = "0.1.0"
 edition = "2024"
 
+[[example]]
+name = "callback_get"
+path = "examples/callback_get.rs"
+
+[[example]]
+name = "async_wrapper_simple"
+path = "examples/async_wrapper_simple.rs"
+
+[[example]]
+name = "async_wrapper_quick_test"
+path = "examples/async_wrapper_quick_test.rs"
+
+[[example]]
+name = "simple_get"
+path = "examples/simple_get.rs"
+
+[[example]]
+name = "post_request"
+path = "examples/post_request.rs"
+
+[[example]]
+name = "error_handling"
+path = "examples/error_handling.rs"
+
+[[example]]
+name = "performance_test"
+path = "examples/performance_test.rs"
+
+[[example]]
+name = "doc_examples"
+path = "examples/doc_examples.rs"
+
+[[example]]
+name = "http3_quic"
+path = "examples/http3_quic.rs"
+
+[[example]]
+name = "streaming_download"
+path = "examples/streaming_download.rs"
+
 [dependencies]
 futures = "0.3.32"
 libloading = "0.9.0"
 tokio = { version = "1.51.1", features = ["full"] }
+tokio-stream = "0.1.18"
+url = "2.3.1"
+tempfile = "3.10.0"
