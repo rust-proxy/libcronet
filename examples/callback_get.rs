@@ -1,13 +1,15 @@
 use cronet_rs::request::{
     Buffer, Executor, UrlRequest, UrlRequestCallback, UrlRequestCallbackHandler, UrlRequestParams,
 };
-use cronet_rs::{get_lib, CronetApi, Engine, EngineParams};
+use cronet_rs::{CronetApi, Engine, EngineParams};
 use std::ffi::c_void;
 use std::os::raw::c_char;
+use std::sync::Arc;
 use std::sync::mpsc;
 
 /// Custom Callback Implementation
 struct ExampleCallback {
+    api: Arc<CronetApi>,
     tx: mpsc::Sender<String>,
 }
 
@@ -20,8 +22,9 @@ impl UrlRequestCallbackHandler for ExampleCallback {
     ) {
         println!("Redirect received, following...");
         unsafe {
-            if let Ok(func) = get_lib()
-                .get::<unsafe extern "C" fn(*mut c_void)>(b"Cronet_UrlRequest_FollowRedirect")
+            if let Ok(func) = self
+                .api
+                .get_sym::<unsafe extern "C" fn(*mut c_void)>(b"Cronet_UrlRequest_FollowRedirect")
             {
                 func(request);
             }
@@ -30,11 +33,14 @@ impl UrlRequestCallbackHandler for ExampleCallback {
 
     fn on_response_started(&self, request: *mut c_void, _info: *mut c_void) {
         println!("Response started! Allocating buffer for read...");
-        let buffer = Buffer::new().unwrap();
+        let buffer = Buffer::new(self.api.clone()).unwrap();
         buffer.init_with_alloc(32768).unwrap(); // 32KB chunk
         unsafe {
-            if let Ok(func) = get_lib()
-                .get::<unsafe extern "C" fn(*mut c_void, *mut c_void)>(b"Cronet_UrlRequest_Read")
+            if let Ok(func) = self
+                .api
+                .get_sym::<unsafe extern "C" fn(*mut c_void, *mut c_void)>(
+                    b"Cronet_UrlRequest_Read",
+                )
             {
                 func(request, buffer.ptr);
             }
@@ -54,9 +60,12 @@ impl UrlRequestCallbackHandler for ExampleCallback {
         if bytes_read > 0 {
             // Keep reading
             unsafe {
-                if let Ok(func) = get_lib().get::<unsafe extern "C" fn(*mut c_void, *mut c_void)>(
-                    b"Cronet_UrlRequest_Read",
-                ) {
+                if let Ok(func) = self
+                    .api
+                    .get_sym::<unsafe extern "C" fn(*mut c_void, *mut c_void)>(
+                        b"Cronet_UrlRequest_Read",
+                    )
+                {
                     func(request, buffer_ptr);
                 }
             }
@@ -89,18 +98,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let engine = Engine::new(api.clone())?;
     engine.start_with_params(&params)?;
 
-    let executor = Executor::new()?;
+    let executor = Executor::new(api.clone())?;
 
     // Setup communication channel to block main thread
     let (tx, rx) = mpsc::channel();
-    let handler = ExampleCallback { tx };
+    let handler = ExampleCallback {
+        api: api.clone(),
+        tx,
+    };
 
-    let callback = UrlRequestCallback::new(handler)?;
-    let req_params = UrlRequestParams::new()?;
+    let callback = UrlRequestCallback::new(api.clone(), handler)?;
+    let req_params = UrlRequestParams::new(api.clone())?;
 
     let request = UrlRequest::new(
+        api.clone(),
         &engine,
-        "https://httpbin.org/get",
+        url::Url::parse("https://httpbin.org/get").unwrap(),
         req_params.ptr,
         &callback,
         &executor,
